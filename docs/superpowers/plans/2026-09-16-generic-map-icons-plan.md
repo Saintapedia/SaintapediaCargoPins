@@ -524,16 +524,29 @@ Append to `~/saintapedia/tour/wiki/Tour_Query_Smoke_Test.wiki` (after the block 
 ```wikitext
 == Pins format: multi-table combined map (generic table-default bucket) ==
 {{#cargo_compound_query:
-tables=Footprints;where=Saint="Blessed Stanley Rother" AND Walked!="No";fields=LocationTitle,Coordinates,'Footprints'=IconKey
-|tables=Parishes;fields=ShortName=LocationTitle,ParishLocation=Coordinates,'Parishes'=IconKey
+tables=Footprints;where=Saint="Blessed Stanley Rother" AND Walked!="No";fields=LocationTitle,Coordinates,CONCAT('Footprints')=IconKey
+|tables=Parishes;fields=ShortName=LocationTitle,ParishLocation,CONCAT('Parishes')=IconKey;limit=5
 |format=pins
 |iconfield=IconKey
 |iconmap=table-default
 |height=350
 |width=100%
-|limit=5
 }}
 ```
+
+Two syntax gotchas found while verifying this against real `dev` data
+(both now documented in the design doc's section 5): a bare quoted
+literal (`'Footprints'=IconKey`) is rejected by Cargo's field parser —
+wrap it in a no-op SQL function, `CONCAT('Footprints')=IconKey`. And
+aliasing the `Coordinates`-typed field itself (`ParishLocation=Coordinates`)
+silently drops every row — a pre-existing Cargo-core limitation
+(reproduces under plain `format=leaflet` too), not an `iconmap` bug.
+Leave each sub-block's native `Coordinates`-type field name un-aliased;
+`CargoPinsFormat` already handles multiple differently-named coordinate
+fields across a merged compound-query row set. Per-block `;limit=5`
+(inside the `Parishes` block, not the shared top-level params) keeps
+just that sub-block small — a top-level `|limit=` was tried first and
+did not cap the `Parishes` side of the union.
 
 - [ ] **Step 2: Push**
 

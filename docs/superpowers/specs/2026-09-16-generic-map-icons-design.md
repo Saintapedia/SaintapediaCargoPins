@@ -226,16 +226,34 @@ if ( $iconFileName !== null && $iconMapName !== null ) {
 
 ### 5. Combined multi-table maps
 
-Each `#cargo_compound_query` sub-block aliases its own field to one
-shared column name; a single top-level `iconfield`/`iconmap` (display
-params are already shared across all sub-blocks, per how
-`Template:Place maps/map` already uses them today) resolves every row
-regardless of source table:
+Each `#cargo_compound_query` sub-block aliases its own non-coordinate
+field to one shared column name; a single top-level `iconfield`/
+`iconmap` (display params are already shared across all sub-blocks, per
+how `Template:Place maps/map` already uses them today) resolves every
+row regardless of source table. Two syntax details, both found the hard
+way while verifying this on real `dev` data (`Footprints` + `Parishes`,
+see the implementation plan's Task 4):
+
+- A literal per-block tag must be wrapped in a SQL function —
+  Cargo's field-list parser rejects a bare quoted string
+  (`'Parishes'=IconKey` fails with *"Identifier must not contain quote,
+  dot or null characters"*), but accepts one as a function argument:
+  `CONCAT('Parishes')=IconKey` works.
+- **Do not alias the `Coordinates`-typed field itself.** Aliasing it
+  (e.g. `ParishLocation=Coordinates`) silently drops every row — this
+  reproduces identically under plain, unmodified `format=leaflet`, so
+  it's a pre-existing Cargo-core limitation, not something introduced
+  by `iconmap` or by `CargoPinsFormat`. Instead, leave each sub-block's
+  native `Coordinates`-type field name as-is; `CargoPinsFormat::display()`
+  already loops over *all* differently-named `Coordinates` fields
+  present across the merged compound-query row set (`$coordinatesFields`
+  is built from every field of that type it sees), so this works
+  natively with zero code change.
 
 ```wikitext
 {{#cargo_compound_query:
-tables=Saints;where=...;fields=Name,Coordinates,'Saints'=IconKey
-|tables=Parishes;where=...;fields=ParishName=Name,ParishLocation=Coordinates,'Parishes'=IconKey
+tables=Saints;where=...;fields=Name,Coordinates,CONCAT('Saints')=IconKey
+|tables=Parishes;where=...;fields=ParishName=Name,ParishLocation,CONCAT('Parishes')=IconKey
 |format=pins
 |iconfield=IconKey
 |iconmap=table-default
