@@ -73,9 +73,16 @@ use MWException;
  */
 class CargoPinsFormat extends CargoLeafletFormat {
 
+	private ?CargoPinsConfigService $configService = null;
+
+	private function getConfigService(): CargoPinsConfigService {
+		return $this->configService ??= new CargoPinsConfigService();
+	}
+
 	public static function allowedParameters() {
 		$params = parent::allowedParameters();
 		$params['iconfield'] = [ 'type' => 'string' ];
+		$params['iconmap'] = [ 'type' => 'string' ];
 		return $params;
 	}
 
@@ -342,6 +349,10 @@ class CargoPinsFormat extends CargoLeafletFormat {
 			} else {
 				$iconFileName = $displayParams['icon'];
 			}
+		}
+
+		if ( $iconFileName !== null && ( $displayParams['iconmap'] ?? '' ) !== '' ) {
+			$iconFileName = $this->getConfigService()->resolveIcon( $displayParams['iconmap'], $iconFileName );
 		}
 
 		if ( $iconFileName !== null ) {
