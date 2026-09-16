@@ -1,0 +1,30 @@
+{
+	"name": "SaintapediaCargoPins",
+	"version": "0.1.0",
+	"author": [
+		"Saintapedia"
+	],
+	"url": "https://github.com/Saintapedia/SaintapediaCargoPins",
+	"descriptionmsg": "saintapediacargopins-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "parserhook",
+	"requires": {
+		"MediaWiki": ">= 1.39",
+		"extensions": {
+			"Cargo": ">= 3.0",
+			"Maps": "*"
+		}
+	},
+	"Hooks": {
+		"CargoSetFormatClasses": "MediaWiki\\Extension\\SaintapediaCargoPins\\Pins\\Hooks::onCargoSetFormatClasses"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\SaintapediaCargoPins\\": "includes/"
+	},
+	"MessagesDirs": {
+		"SaintapediaCargoPins": [
+			"i18n"
+		]
+	},
+	"manifest_version": 2
+}

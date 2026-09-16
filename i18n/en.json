@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Saintapedia"
+		]
+	},
+	"saintapediacargopins-desc": "Adds a Cargo map format (<code>format=pins</code>) that resolves each marker's icon from a field value on that row, instead of Cargo core's position-indexed <code>icon=</code> parameter"
+}
