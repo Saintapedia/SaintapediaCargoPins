@@ -26,5 +26,11 @@
 			"i18n"
 		]
 	},
+	"config": {
+		"CargoPinsConfigPage": {
+			"value": "CargoPins-config",
+			"description": "MediaWiki page (JSON) mapping vocabulary buckets to File: page names for format=pins' iconmap parameter. See config/CargoPins-config.sample.json."
+		}
+	},
 	"manifest_version": 2
 }
