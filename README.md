@@ -55,6 +55,30 @@ queries that don't need per-row icons. Every other parameter (`height`,
 `width`, `zoom`, `center`, `cluster`, `image`) works exactly as it does
 for `format=leaflet`.
 
+### Generic icons for any table: `iconmap`
+
+For a table *without* its own stored icon field, add `iconmap=<bucket>`
+alongside `iconfield=<VocabField>`: the field's raw value (e.g. a
+`SiteType` of `Church`) is resolved through the named bucket in
+`MediaWiki:CargoPins-config` (JSON) instead of being read as a literal
+filename. Adding a new table's vocabulary means editing that one wiki
+page — no `#cargo_declare`/`#cargo_store` change, no `Recreate data`,
+no backfill. See `config/CargoPins-config.sample.json` for the config
+shape, and `config/CargoPins-config.saintapedia.json` for what's
+actually deployed.
+
+A `#cargo_compound_query` spanning multiple tables can give each
+table's rows their own icon the same way: alias each sub-block's own
+vocab field (or a `CONCAT('SomeTable')=IconKey`-style literal tag) to
+one shared column, then reference it once via a shared top-level
+`iconfield=`/`iconmap=`. Two things to get right: a literal per-block
+tag must be wrapped in a SQL function (`CONCAT('X')=Alias` — a bare
+`'X'=Alias` is rejected by Cargo's field parser), and the
+`Coordinates`-typed field itself must **not** be aliased (aliasing it
+silently drops every row from that sub-block — a pre-existing Cargo-core
+limitation, not specific to this extension; leave each table's native
+`Coordinates`-type field name as-is instead).
+
 ## Requirements
 
 - MediaWiki >= 1.39
