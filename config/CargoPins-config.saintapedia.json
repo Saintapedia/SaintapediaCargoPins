@@ -1,0 +1,21 @@
+{
+  "vocabularies": {
+    "site-type": {
+      "Parish": "Footprints-icon-parish.svg",
+      "Shrine": "Footprints-icon-shrine.svg",
+      "Church": "Footprints-icon-church.svg",
+      "Home": "Footprints-icon-home.svg",
+      "Workplace": "Footprints-icon-workplace.svg",
+      "School": "Footprints-icon-school.svg",
+      "Cemetery": "Footprints-icon-cemetery.svg",
+      "Convent": "Footprints-icon-convent.svg",
+      "Outdoor": "Footprints-icon-outdoor.svg",
+      "default": "Footprints-icon-pin.svg"
+    },
+    "table-default": {
+      "Footprints": "Footprints-icon-pin.svg",
+      "Parishes": "Footprints-icon-parish.svg",
+      "default": "Footprints-icon-pin.svg"
+    }
+  }
+}

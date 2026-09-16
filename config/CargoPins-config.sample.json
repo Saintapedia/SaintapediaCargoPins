@@ -1,0 +1,13 @@
+{
+  "vocabularies": {
+    "example-type": {
+      "TypeA": "Example-icon-a.svg",
+      "TypeB": "Example-icon-b.svg",
+      "default": "Example-icon-pin.svg"
+    },
+    "table-default": {
+      "SomeTable": "Example-icon-a.svg",
+      "default": "Example-icon-pin.svg"
+    }
+  }
+}
