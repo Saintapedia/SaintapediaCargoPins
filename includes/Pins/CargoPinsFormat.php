@@ -90,18 +90,36 @@ class CargoPinsFormat extends CargoLeafletFormat {
 	 * Cargo's own field-list parser aliases a queried field's row key by
 	 * swapping underscores for spaces (CargoSQLQuery::setAliasedFieldNames()
 	 * does str_replace('_', ' ', $realFieldName)), so `iconfield=Map_Icon`
-	 * shows up on the row as "Map Icon", not "Map_Icon". Try the name as
-	 * given and both directions of that swap.
+	 * shows up on the row as "Map Icon", not "Map_Icon". For a field given
+	 * with no explicit "=Alias" and no "(" (i.e. not a function call like
+	 * CONCAT(...)), that same method also strips a leading "Table." prefix
+	 * *before* the swap -- `iconfield=Footprints.Map_Icon` shows up as
+	 * "Map Icon", not "Footprints.Map_Icon" or "Footprints.Map Icon". Try
+	 * the name as given, both directions of the underscore/space swap, and
+	 * -- when the name contains a "." and no "(" -- the same swap applied
+	 * to just the part after the first ".".
 	 *
 	 * @param string $iconFieldName
 	 * @return string[]
 	 */
 	private static function iconFieldKeyCandidates( string $iconFieldName ): array {
-		return array_unique( [
-			$iconFieldName,
-			str_replace( '_', ' ', $iconFieldName ),
-			str_replace( ' ', '_', $iconFieldName ),
-		] );
+		$baseNames = [ $iconFieldName ];
+
+		if ( strpos( $iconFieldName, '.' ) !== false && strpos( $iconFieldName, '(' ) === false ) {
+			[ , $afterDot ] = explode( '.', $iconFieldName, 2 );
+			if ( $afterDot !== '' ) {
+				$baseNames[] = $afterDot;
+			}
+		}
+
+		$candidates = [];
+		foreach ( $baseNames as $name ) {
+			$candidates[] = $name;
+			$candidates[] = str_replace( '_', ' ', $name );
+			$candidates[] = str_replace( ' ', '_', $name );
+		}
+
+		return array_unique( $candidates );
 	}
 
 	/**
@@ -166,6 +184,11 @@ class CargoPinsFormat extends CargoLeafletFormat {
 		$iconFieldName = ( $displayParams['iconfield'] ?? '' ) !== '' ? $displayParams['iconfield'] : null;
 		$iconFieldKeys = $iconFieldName !== null ? self::iconFieldKeyCandidates( $iconFieldName ) : [];
 
+		if ( $iconFieldName === null && ( $displayParams['iconmap'] ?? '' ) !== '' ) {
+			wfDebugLog( 'SaintapediaCargoPins',
+				'iconmap="' . $displayParams['iconmap'] . '" was given without iconfield; ignoring it.' );
+		}
+
 		// Construct the table of data we will display.
 		$valuesForMap = [];
 		foreach ( $formattedValuesTable as $i => $valuesRow ) {
@@ -196,8 +219,18 @@ class CargoPinsFormat extends CargoLeafletFormat {
 			// names on their own.
 			$rawIconValue = null;
 			foreach ( $iconFieldKeys as $candidateKey ) {
-				if ( array_key_exists( $candidateKey, $valuesTable[$i] ) && $valuesTable[$i][$candidateKey] !== '' ) {
-					$rawIconValue = $valuesTable[$i][$candidateKey];
+				if ( !array_key_exists( $candidateKey, $valuesTable[$i] ) ) {
+					continue;
+				}
+				$candidateValue = $valuesTable[$i][$candidateKey];
+				// $valuesTable cells are untyped -- normalize any scalar
+				// (a numeric vocabulary code included, so the numeric-key
+				// config support above stays reachable) to string, and
+				// treat a non-scalar (e.g. a List-type field's array
+				// value) as no value, rather than passing it through to
+				// the ?string $rawIconValue parameter below.
+				if ( is_scalar( $candidateValue ) && (string)$candidateValue !== '' ) {
+					$rawIconValue = (string)$candidateValue;
 					break;
 				}
 			}

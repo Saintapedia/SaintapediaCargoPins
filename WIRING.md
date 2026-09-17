@@ -26,9 +26,9 @@ this repo where that mount expects extensions to live, then:
    entries).
 2. Restart the wiki so Canasta regenerates `LocalSettings.php` and
    picks up the new extension: `canasta restart -i dev` (a plain source
-   edit afterward does *not* need a restart — `dev`'s `opcache.
-   validate_timestamps` picks that up within ~2 seconds; only a new
-   extension or an `extension.json` change needs one).
+   edit afterward does *not* need a restart — `dev`'s
+   `opcache.validate_timestamps` picks that up within ~2 seconds; only a
+   new extension or an `extension.json` change needs one).
 3. Confirm it loaded: `Special:Version` should list
    "SaintapediaCargoPins", and
    `action=query&meta=siteinfo&siprop=extensions` should include it.
@@ -37,9 +37,10 @@ this repo where that mount expects extensions to live, then:
 
 Prefer `iconmap` over the older stored-`MapIcon`-field path below for a
 first smoke test — it needs no `#cargo_declare` change on any table.
-Seed `MediaWiki:CargoPins-config` from `config/CargoPins-config.
-saintapedia.json` (or your own vocabulary, shaped like `config/
-CargoPins-config.sample.json`), then query any existing table's own
+Seed `MediaWiki:CargoPins-config` from
+`config/CargoPins-config.saintapedia.json` (or your own vocabulary,
+shaped like `config/CargoPins-config.sample.json`), then query any
+existing table's own
 vocab field directly:
 
 ```wikitext
@@ -94,12 +95,23 @@ anything new:
   is upgraded, diff `includes/formats/CargoMapsFormat.php` in the new
   version against what's duplicated here and re-sync.
 - **Field-name normalization.** The icon lookup tries `$iconFieldName` as
-  given, with underscores turned into spaces, and with spaces turned
-  into underscores (`CargoPinsFormat::iconFieldKeyCandidates()`) —
-  matching Cargo's own row-key aliasing (`CargoSQLQuery::
-  setAliasedFieldNames()`), not just the coordinate-field convention
-  this originally assumed. Field names with punctuation or other special
-  characters still aren't handled.
+  given, with underscores turned into spaces, with spaces turned into
+  underscores, and — for a `Table.Field` name with no explicit `=Alias`
+  — the same swap applied to just the part after the first `.`
+  (`CargoPinsFormat::iconFieldKeyCandidates()`), matching Cargo's own
+  row-key aliasing (`CargoSQLQuery::setAliasedFieldNames()`) exactly,
+  not just the coordinate-field convention this originally assumed.
+  Field names with punctuation or other special characters still aren't
+  handled.
+- **`wfDebugLog('SaintapediaCargoPins', ...)` needs
+  `$wgDebugLogGroups['SaintapediaCargoPins']` set to actually go
+  anywhere.** Verified on `dev`: with no entry for this group (the
+  stock Canasta default), these calls are silently discarded by
+  MediaWiki's `LoggerFactory` — nothing reaches any file, including
+  `$wgDebugLogFile`. Add a `SaintapediaCargoPins` entry to
+  `$wgDebugLogGroups` (see `config/settings/global/*.php` for this
+  wiki's existing per-extension config-snippet convention) to actually
+  see the "iconfield/iconmap produced no icon" diagnostics.
 - **No `Maps` dependency.** `CargoLeafletFormat::getScripts()`/
   `getStyles()` in Cargo 3.9.x load Leaflet directly from unpkg and do
   not consult Extension:Maps — confirmed by reading the installed
