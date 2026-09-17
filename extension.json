@@ -9,10 +9,9 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "parserhook",
 	"requires": {
-		"MediaWiki": ">= 1.39",
+		"MediaWiki": ">= 1.42",
 		"extensions": {
-			"Cargo": ">= 3.0",
-			"Maps": "*"
+			"Cargo": ">= 3.9.1"
 		}
 	},
 	"Hooks": {
