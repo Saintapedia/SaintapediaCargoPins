@@ -87,6 +87,24 @@ class CargoPinsFormat extends CargoLeafletFormat {
 	}
 
 	/**
+	 * Cargo's own field-list parser aliases a queried field's row key by
+	 * swapping underscores for spaces (CargoSQLQuery::setAliasedFieldNames()
+	 * does str_replace('_', ' ', $realFieldName)), so `iconfield=Map_Icon`
+	 * shows up on the row as "Map Icon", not "Map_Icon". Try the name as
+	 * given and both directions of that swap.
+	 *
+	 * @param string $iconFieldName
+	 * @return string[]
+	 */
+	private static function iconFieldKeyCandidates( string $iconFieldName ): array {
+		return array_unique( [
+			$iconFieldName,
+			str_replace( '_', ' ', $iconFieldName ),
+			str_replace( ' ', '_', $iconFieldName ),
+		] );
+	}
+
+	/**
 	 * Copied from CargoMapsFormat::display() and modified only in how
 	 * each marker's icon is resolved (see getPinValues() below). Keep
 	 * this in sync with Cargo core's own version when Cargo is upgraded --
@@ -146,6 +164,7 @@ class CargoPinsFormat extends CargoLeafletFormat {
 		$this->mOutput->addModules( [ 'ext.cargo.maps' ] );
 
 		$iconFieldName = ( $displayParams['iconfield'] ?? '' ) !== '' ? $displayParams['iconfield'] : null;
+		$iconFieldKeys = $iconFieldName !== null ? self::iconFieldKeyCandidates( $iconFieldName ) : [];
 
 		// Construct the table of data we will display.
 		$valuesForMap = [];
@@ -160,13 +179,31 @@ class CargoPinsFormat extends CargoLeafletFormat {
 				// or that are only there to supply the marker icon.
 				if ( $fieldType == 'Coordinates' || $fieldType == 'Coordinates part'
 					|| $fieldName == $latField || $fieldName == $lonField || $fieldName == $urlField
-					|| ( $iconFieldName !== null && $fieldName == $iconFieldName ) ) {
+					|| in_array( $fieldName, $iconFieldKeys, true ) ) {
 					continue;
 				}
 				if ( $fieldValue == '' ) {
 					continue;
 				}
 				$displayedValuesForRow[$fieldName] = $fieldValue;
+			}
+
+			// Capture the icon value from the *unformatted* row before the
+			// array_shift() calls below mutate $valuesTable[$i] -- the
+			// formatted value may be a thumbnail (File fields), a link
+			// (Page fields), or parsed wikitext (a CONCAT(...) alias, which
+			// has no declared type), none of which are valid File: page
+			// names on their own.
+			$rawIconValue = null;
+			foreach ( $iconFieldKeys as $candidateKey ) {
+				if ( array_key_exists( $candidateKey, $valuesTable[$i] ) && $valuesTable[$i][$candidateKey] !== '' ) {
+					$rawIconValue = $valuesTable[$i][$candidateKey];
+					break;
+				}
+			}
+			if ( $iconFieldName !== null && $rawIconValue === null ) {
+				wfDebugLog( 'SaintapediaCargoPins',
+					"iconfield \"$iconFieldName\" produced no value for a row; using the default marker." );
 			}
 
 			// There could potentially be more than one
@@ -183,7 +220,7 @@ class CargoPinsFormat extends CargoLeafletFormat {
 					$firstValue = array_shift( $displayedValuesForRow );
 					$valuesForMap[] = $this->getPinValues(
 						$nameValue, $firstValue, $latValue, $lonValue,
-						$displayedValuesForRow, $displayParams, $i, $valuesRow, $iconFieldName
+						$displayedValuesForRow, $displayParams, $i, $rawIconValue, $iconFieldName
 					);
 				}
 			}
@@ -202,7 +239,7 @@ class CargoPinsFormat extends CargoLeafletFormat {
 					}
 					$valuesForMap[] = $this->getPinValues(
 						$nameValue, $titleValue, $latValue, $lonValue,
-						$displayedValuesForRow, $displayParams, $i, $valuesRow, $iconFieldName
+						$displayedValuesForRow, $displayParams, $i, $rawIconValue, $iconFieldName
 					);
 				}
 			}
@@ -296,12 +333,11 @@ class CargoPinsFormat extends CargoLeafletFormat {
 
 	/**
 	 * Like CargoMapsFormat::getMapPointValues(), but when $iconFieldName
-	 * is given, resolves the icon from $valuesRow[$iconFieldName] --
-	 * i.e. directly from this same row's own data -- instead of from
-	 * $displayParams['icon']'s row-position indexing. Falls back to the
-	 * parent format's own icon logic when no iconfield is set, so
-	 * `format=pins` behaves exactly like `format=leaflet` for existing
-	 * single-icon queries.
+	 * is given, resolves the icon from $rawIconValue -- i.e. directly from
+	 * this same row's own data -- instead of from $displayParams['icon']'s
+	 * row-position indexing. Falls back to the parent format's own icon
+	 * logic when no iconfield is set, so `format=pins` behaves exactly
+	 * like `format=leaflet` for existing single-icon queries.
 	 *
 	 * @param mixed $nameValue
 	 * @param mixed $titleValue
@@ -310,15 +346,16 @@ class CargoPinsFormat extends CargoLeafletFormat {
 	 * @param array $displayedValuesForRow
 	 * @param array $displayParams
 	 * @param int|string $rowNum
-	 * @param array $valuesRow The formatted row this marker came from --
-	 *   used only to look up $iconFieldName, so field formatting (link
-	 *   wrapping etc.) doesn't matter for a plain String icon field.
+	 * @param string|null $rawIconValue The unformatted value of the
+	 *   iconfield column for this row (already resolved by the caller via
+	 *   iconFieldKeyCandidates()), or null if $iconFieldName is null or the
+	 *   column had no value on this row.
 	 * @param string|null $iconFieldName
 	 * @return array
 	 */
 	private function getPinValues(
 		$nameValue, $titleValue, $latValue, $lonValue, $displayedValuesForRow,
-		$displayParams, $rowNum, array $valuesRow, ?string $iconFieldName
+		$displayParams, $rowNum, ?string $rawIconValue, ?string $iconFieldName
 	) {
 		$valuesForMapPoint = [
 			// 'name' has no formatting (like a link), while 'title' might.
@@ -332,12 +369,7 @@ class CargoPinsFormat extends CargoLeafletFormat {
 		$iconFileName = null;
 
 		if ( $iconFieldName !== null ) {
-			$iconFileName = $valuesRow[$iconFieldName]
-				?? $valuesRow[str_replace( ' ', '_', $iconFieldName )]
-				?? null;
-			if ( $iconFileName === '' ) {
-				$iconFileName = null;
-			}
+			$iconFileName = $rawIconValue;
 		} elseif ( array_key_exists( 'icon', $displayParams ) ) {
 			// No iconfield given -- fall back to Cargo core's own
 			// (position-indexed, compound-query-only) behavior, so this
@@ -351,14 +383,26 @@ class CargoPinsFormat extends CargoLeafletFormat {
 			}
 		}
 
-		if ( $iconFileName !== null && ( $displayParams['iconmap'] ?? '' ) !== '' ) {
-			$iconFileName = $this->getConfigService()->resolveIcon( $displayParams['iconmap'], $iconFileName );
+		// iconmap only ever applies to an iconfield value -- never to
+		// Cargo core's own icon= fallback above, which is already a
+		// literal filename by definition.
+		if ( $iconFieldName !== null && $iconFileName !== null && ( $displayParams['iconmap'] ?? '' ) !== '' ) {
+			$iconMapName = $displayParams['iconmap'];
+			$resolvedIcon = $this->getConfigService()->resolveIcon( $iconMapName, $iconFileName );
+			if ( $resolvedIcon === null ) {
+				wfDebugLog( 'SaintapediaCargoPins',
+					"iconmap \"$iconMapName\" has no entry (and no \"default\") for value \"$iconFileName\"." );
+			}
+			$iconFileName = $resolvedIcon;
 		}
 
 		if ( $iconFileName !== null ) {
 			$iconURL = self::getImageURL( $iconFileName );
 			if ( $iconURL !== null ) {
 				$valuesForMapPoint['icon'] = $iconURL;
+			} elseif ( $iconFieldName !== null ) {
+				wfDebugLog( 'SaintapediaCargoPins',
+					"iconfield \"$iconFieldName\" resolved to \"$iconFileName\", which is not a valid File: page." );
 			}
 		}
 
