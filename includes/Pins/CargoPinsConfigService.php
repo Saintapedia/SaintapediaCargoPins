@@ -56,6 +56,7 @@ class CargoPinsConfigService {
 
 		$title = Title::makeTitleSafe( NS_MEDIAWIKI, $pageName );
 		if ( $title === null || !$title->exists() ) {
+			wfDebugLog( 'SaintapediaCargoPins', "Config page \"MediaWiki:$pageName\" does not exist." );
 			return null;
 		}
 
@@ -112,17 +113,26 @@ class CargoPinsConfigService {
 
 		$vocabularies = [];
 		foreach ( $rawVocabularies as $vocabName => $bucket ) {
-			if ( !is_string( $vocabName ) || $vocabName === '' || !is_array( $bucket ) ) {
+			// json_decode(..., true) turns a decimal-integer-looking JSON
+			// object key (e.g. "1") into a PHP int key -- accept int here
+			// and cast back to string, rather than dropping numeric
+			// vocabulary/value codes.
+			if ( ( !is_string( $vocabName ) && !is_int( $vocabName ) ) || !is_array( $bucket ) ) {
 				wfDebugLog( 'SaintapediaCargoPins', "Skipping invalid vocabulary entry: $vocabName" );
+				continue;
+			}
+			$vocabName = (string)$vocabName;
+			if ( $vocabName === '' ) {
+				wfDebugLog( 'SaintapediaCargoPins', 'Skipping vocabulary entry with an empty name.' );
 				continue;
 			}
 			$normalizedBucket = [];
 			foreach ( $bucket as $vocabKey => $fileName ) {
-				if ( !is_string( $vocabKey ) || $vocabKey === '' || !is_string( $fileName ) || $fileName === '' ) {
+				if ( ( !is_string( $vocabKey ) && !is_int( $vocabKey ) ) || !is_string( $fileName ) || $fileName === '' ) {
 					wfDebugLog( 'SaintapediaCargoPins', "Skipping invalid entry in vocabulary \"$vocabName\": $vocabKey" );
 					continue;
 				}
-				$normalizedBucket[$vocabKey] = $fileName;
+				$normalizedBucket[(string)$vocabKey] = $fileName;
 			}
 			if ( $normalizedBucket !== [] ) {
 				$vocabularies[$vocabName] = $normalizedBucket;

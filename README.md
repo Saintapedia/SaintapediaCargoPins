@@ -81,13 +81,24 @@ limitation, not specific to this extension; leave each table's native
 
 ## Requirements
 
-- MediaWiki >= 1.39
-- [Cargo](https://www.mediawiki.org/wiki/Extension:Cargo) >= 3.0
-- [Maps](https://www.mediawiki.org/wiki/Extension:Maps) (for the Leaflet
-  JS/CSS assets `format=pins` reuses via `CargoLeafletFormat`)
+- MediaWiki >= 1.42
+- [Cargo](https://www.mediawiki.org/wiki/Extension:Cargo) >= 3.9.1
+
+`format=pins` extends `CargoLeafletFormat`, which loads its own Leaflet
+JS/CSS directly from unpkg (`CargoLeafletFormat::getScripts()`/
+`getStyles()`) — Cargo 3.9.x does not consult Extension:Maps for this,
+so this extension has no dependency on it.
 
 ## Status
 
-Written and reviewed against Cargo 3.9.1's actual source, but **not yet
-installed or tested against a live wiki**. See `WIRING.md` before
-deploying.
+`iconfield` (a literal `File:` page name per row) and `iconmap` (a
+render-time vocabulary lookup against `MediaWiki:CargoPins-config`, so
+*any* Cargo table with a `Coordinates` field can get per-row icons with
+no schema change) have both been installed and verified end-to-end
+against a live wiki (Canasta `dev`, `mwdev`), including through a
+`#cargo_compound_query` spanning two different Cargo tables. See
+`docs/superpowers/plans/2026-09-16-generic-map-icons-plan.md` for the
+verification steps actually run. `WIRING.md`'s stored-`MapIcon`-field
+walkthrough (`Footprints`'s original approach, predating `iconmap`) is
+one still-supported but no longer necessary path — prefer `iconmap` for
+any table that doesn't already have a computed icon field.
